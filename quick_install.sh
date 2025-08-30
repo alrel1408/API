@@ -109,7 +109,7 @@ fi
 
 # Install Python packages
 print_info "Installing Python packages..."
-pip3 install flask gunicorn >/dev/null 2>&1
+pip3 install flask flask-limiter gunicorn >/dev/null 2>&1
 check_result "Python packages installed" "Failed to install Python packages"
 
 # Create directories
@@ -159,9 +159,20 @@ cat > /etc/API/api_keys.json << EOF
 EOF
 check_result "API keys generated" "Failed to generate API keys"
 
+# Test gunicorn installation
+print_info "Testing gunicorn installation..."
+if python3 -m gunicorn --version >/dev/null 2>&1; then
+    print_ok "Gunicorn is available"
+    USE_GUNICORN=true
+else
+    print_warning "Gunicorn not available, using direct Python execution"
+    USE_GUNICORN=false
+fi
+
 # Create systemd service
 print_info "Creating systemd service..."
-cat > /etc/systemd/system/vpn-api.service << 'EOF'
+if [ "$USE_GUNICORN" = true ]; then
+    cat > /etc/systemd/system/vpn-api.service << 'EOF'
 [Unit]
 Description=VPN Management API
 After=network.target
@@ -171,13 +182,38 @@ Type=simple
 User=root
 WorkingDirectory=/etc/API
 Environment=PATH=/usr/bin:/usr/local/bin
-ExecStart=/usr/bin/python3 /etc/API/vpn_api.py
+Environment=PYTHONPATH=/etc/API
+ExecStart=/usr/bin/python3 -m gunicorn --bind 127.0.0.1:5000 --workers 2 --timeout 120 vpn_api:app
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
 EOF
+else
+    cat > /etc/systemd/system/vpn-api.service << 'EOF'
+[Unit]
+Description=VPN Management API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/API
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=PYTHONPATH=/etc/API
+ExecStart=/usr/bin/python3 /etc/API/vpn_api.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
 check_result "Systemd service created" "Failed to create systemd service"
 
 # Configure Nginx
@@ -281,26 +317,58 @@ fi
 # Enable and start services
 print_info "Starting services..."
 systemctl daemon-reload
+check_result "Systemd daemon reloaded" "Failed to reload systemd daemon"
+
 systemctl enable vpn-api >/dev/null 2>&1
+check_result "VPN API service enabled" "Failed to enable VPN API service"
+
+# Test Python script first
+print_info "Testing Python script..."
+cd /etc/API
+python3 -c "import vpn_api" 2>/dev/null
+if [ $? -eq 0 ]; then
+    print_ok "Python script syntax OK"
+else
+    print_error "Python script has syntax errors"
+    python3 -c "import vpn_api"
+    exit 1
+fi
+
+# Start VPN API service
+print_info "Starting VPN API service..."
 systemctl start vpn-api
-systemctl restart nginx
+sleep 5
 
-# Wait for service to start
-sleep 3
-
-# Check if services are running
+# Check if services are running with detailed error info
 if systemctl is-active --quiet vpn-api; then
     print_ok "VPN API service is running"
 else
     print_error "VPN API service failed to start"
-    echo "Check logs with: journalctl -u vpn-api"
+    print_info "Service status:"
+    systemctl status vpn-api --no-pager -l
+    print_info "Recent logs:"
+    journalctl -u vpn-api --no-pager -n 10
+    
+    # Try direct Python execution for debugging
+    print_info "Trying direct Python execution..."
+    cd /etc/API
+    timeout 10s python3 vpn_api.py &
+    sleep 3
+    if curl -s http://localhost:5000/api/v1/info >/dev/null 2>&1; then
+        print_warning "API works with direct Python, issue might be with gunicorn"
+        pkill -f vpn_api.py
+    fi
     exit 1
 fi
 
+# Start/restart Nginx
+print_info "Starting Nginx..."
+systemctl restart nginx
 if systemctl is-active --quiet nginx; then
     print_ok "Nginx service is running"
 else
     print_error "Nginx service failed to start"
+    nginx -t
     exit 1
 fi
 

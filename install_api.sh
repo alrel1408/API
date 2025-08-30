@@ -101,6 +101,16 @@ print_info "Menginstall Python packages..."
 pip3 install flask flask-limiter gunicorn
 check_result "Python packages berhasil diinstall" "Gagal menginstall Python packages"
 
+# Test gunicorn installation
+print_info "Testing gunicorn installation..."
+if python3 -m gunicorn --version >/dev/null 2>&1; then
+    print_ok "Gunicorn is available"
+    USE_GUNICORN=true
+else
+    print_warning "Gunicorn not available, using direct Python execution"
+    USE_GUNICORN=false
+fi
+
 # Download API files jika belum ada
 if [ ! -f "/etc/API/vpn_api.py" ]; then
     print_info "Mendownload file API..."
