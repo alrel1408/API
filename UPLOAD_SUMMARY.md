@@ -86,7 +86,7 @@ vpn-api status
 vpn-api key
 
 # Test API
-curl -H "X-API-Key: YOUR_KEY" http://YOUR_IP:8080/api/v1/info
+curl -H "X-API-Key: YOUR_KEY" http://YOUR_IP:5000/api/v1/info
 ```
 
 ## 🌟 Keunggulan

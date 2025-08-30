@@ -474,7 +474,7 @@ check_result "Service berhasil dienable" "Gagal mengenable service"
 print_info "Mengkonfigurasi Nginx..."
 cat > /etc/nginx/sites-available/vpn-api << 'EOF'
 server {
-    listen 8080;
+    listen 5000;
     server_name _;
 
     location / {
@@ -565,14 +565,14 @@ check_result "Script management berhasil dibuat" "Gagal membuat script managemen
 # Buat firewall rules
 print_info "Mengkonfigurasi firewall..."
 if command -v ufw >/dev/null 2>&1; then
-    ufw allow 8080/tcp
-    print_ok "UFW rule ditambahkan untuk port 8080"
+    ufw allow 5000/tcp
+    print_ok "UFW rule ditambahkan untuk port 5000"
 elif command -v firewall-cmd >/dev/null 2>&1; then
-    firewall-cmd --permanent --add-port=8080/tcp
+    firewall-cmd --permanent --add-port=5000/tcp
     firewall-cmd --reload
-    print_ok "Firewalld rule ditambahkan untuk port 8080"
+    print_ok "Firewalld rule ditambahkan untuk port 5000"
 else
-    print_warning "Firewall tidak terdeteksi, pastikan port 8080 terbuka"
+    print_warning "Firewall tidak terdeteksi, pastikan port 5000 terbuka"
 fi
 
 # Ambil IP server
@@ -602,7 +602,7 @@ echo -e "${GREEN}║        INSTALASI BERHASIL SELESAI!       ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}📋 INFORMASI API:${NC}"
-echo -e "   🌐 URL API    : http://$SERVER_IP:8080"
+echo -e "   🌐 URL API    : http://$SERVER_IP:5000"
 echo -e "   🔑 API Key    : $DEFAULT_API_KEY"
 echo -e "   📝 Log File   : /var/log/api/vpn_api.log"
 echo -e "   ⚙️  Config    : /etc/API/"
@@ -617,18 +617,18 @@ echo -e "   vpn-api key      - Lihat API keys"
 echo ""
 echo -e "${CYAN}📚 CONTOH PENGGUNAAN:${NC}"
 echo -e "   # Membuat SSH trial"
-echo -e "   curl -X POST http://$SERVER_IP:8080/api/v1/trial/ssh \\"
+echo -e "   curl -X POST http://$SERVER_IP:5000/api/v1/trial/ssh \\"
 echo -e "        -H \"X-API-Key: $DEFAULT_API_KEY\" \\"
 echo -e "        -H \"Content-Type: application/json\""
 echo ""
 echo -e "   # Lihat semua akun"
-echo -e "   curl -X GET http://$SERVER_IP:8080/api/v1/accounts/list \\"
+echo -e "   curl -X GET http://$SERVER_IP:5000/api/v1/accounts/list \\"
 echo -e "        -H \"X-API-Key: $DEFAULT_API_KEY\""
 echo ""
 echo -e "${YELLOW}⚠️  PENTING:${NC}"
 echo -e "   - Simpan API Key dengan aman!"
-echo -e "   - Pastikan port 8080 terbuka di firewall"
-echo -e "   - API berjalan di port 8080 melalui Nginx"
+echo -e "   - Pastikan port 5000 terbuka di firewall"
+echo -e "   - API berjalan di port 5000 melalui Nginx"
 echo ""
 echo -e "${GREEN}🎉 API VPN Management siap digunakan!${NC}"
 echo ""
@@ -638,7 +638,7 @@ cat > /root/vpn-api-info.txt << EOF
 VPN Management API Information
 =============================
 
-API URL: http://$SERVER_IP:8080
+API URL: http://$SERVER_IP:5000
 API Key: $DEFAULT_API_KEY
 Log File: /var/log/api/vpn_api.log
 Config Dir: /etc/API/

@@ -62,16 +62,16 @@ vpn-api key
 ### 3. Test API
 ```bash
 # Replace YOUR_API_KEY with actual key from step 2
-curl -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:8080/api/v1/info
+curl -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:5000/api/v1/info
 ```
 
 ### 4. Create Trial Account
 ```bash
 # SSH Trial
-curl -X POST -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:8080/api/v1/trial/ssh
+curl -X POST -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:5000/api/v1/trial/ssh
 
 # Trojan Trial  
-curl -X POST -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:8080/api/v1/trial/trojan
+curl -X POST -H "X-API-Key: YOUR_API_KEY" http://YOUR_SERVER_IP:5000/api/v1/trial/trojan
 ```
 
 ## 🛠️ Management Commands
@@ -147,14 +147,14 @@ DELETE /api/v1/vmess/delete/{uuid} # Delete VMess account
 Semua API endpoint memerlukan header `X-API-Key`:
 
 ```bash
-curl -H "X-API-Key: your-api-key-here" http://server:8080/api/v1/info
+curl -H "X-API-Key: your-api-key-here" http://server:5000/api/v1/info
 ```
 
 ## 🌐 Access URLs
 
 Setelah instalasi, API dapat diakses di:
-- **Local**: http://localhost:8080
-- **External**: http://YOUR_SERVER_IP:8080
+- **Local**: http://localhost:5000
+- **External**: http://YOUR_SERVER_IP:5000
 
 ## 📱 Example Usage
 
@@ -164,20 +164,20 @@ curl -X POST \
   -H "X-API-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","password":"testpass123","days":30}' \
-  http://YOUR_SERVER_IP:8080/api/v1/ssh/create
+  http://YOUR_SERVER_IP:5000/api/v1/ssh/create
 ```
 
 ### Create Trojan Trial
 ```bash
 curl -X POST \
   -H "X-API-Key: YOUR_API_KEY" \
-  http://YOUR_SERVER_IP:8080/api/v1/trial/trojan
+  http://YOUR_SERVER_IP:5000/api/v1/trial/trojan
 ```
 
 ### List All SSH Accounts
 ```bash
 curl -H "X-API-Key: YOUR_API_KEY" \
-  http://YOUR_SERVER_IP:8080/api/v1/ssh/list
+  http://YOUR_SERVER_IP:5000/api/v1/ssh/list
 ```
 
 ## 🗑️ Uninstall
@@ -195,7 +195,7 @@ Untuk menghapus API sepenuhnya:
 journalctl -u vpn-api -f
 
 # Check port
-netstat -tlnp | grep 8080
+netstat -tlnp | grep 5000
 
 # Restart service
 vpn-api restart
@@ -227,7 +227,7 @@ Jika mengalami masalah:
 1. **Check logs**: `vpn-api logs`
 2. **Check status**: `vpn-api status` 
 3. **Test locally**: `curl http://localhost:5000/api/v1/info`
-4. **Check firewall**: Pastikan port 8080 terbuka
+4. **Check firewall**: Pastikan port 5000 terbuka
 5. **Reinstall**: Jalankan uninstaller lalu install ulang
 
 ## 📈 Features

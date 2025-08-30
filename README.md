@@ -104,13 +104,13 @@ vpn-api key
 
 ### Buat SSH Trial
 ```bash
-curl -X POST http://your-server:8080/api/v1/trial/ssh \
+curl -X POST http://your-server:5000/api/v1/trial/ssh \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
 ### Buat Trojan Account
 ```bash
-curl -X POST http://your-server:8080/api/v1/trojan/create \
+curl -X POST http://your-server:5000/api/v1/trojan/create \
   -H "X-API-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,7 +123,7 @@ curl -X POST http://your-server:8080/api/v1/trojan/create \
 
 ### List Semua Akun
 ```bash
-curl -X GET http://your-server:8080/api/v1/accounts/list \
+curl -X GET http://your-server:5000/api/v1/accounts/list \
   -H "X-API-Key: YOUR_API_KEY"
 ```
 
@@ -201,7 +201,7 @@ systemctl status nginx
 tail -f /var/log/api/vpn_api.log
 
 # Nginx logs
-tail -f /var/log/nginx/access.log | grep :8080
+tail -f /var/log/nginx/access.log | grep :5000
 
 # System logs
 journalctl -u vpn-api -f
@@ -235,8 +235,8 @@ vpn-api logs
 
 ### Port sudah digunakan
 ```bash
-# Cek port 8080
-netstat -tlnp | grep :8080
+# Cek port 5000
+netstat -tlnp | grep :5000
 
 # Kill process jika perlu
 kill -9 <PID>
@@ -245,7 +245,7 @@ kill -9 <PID>
 ### API tidak response
 ```bash
 # Test lokal
-curl -H "X-API-Key: YOUR_KEY" http://localhost:8080/api/v1/info
+curl -H "X-API-Key: YOUR_KEY" http://localhost:5000/api/v1/info
 
 # Cek nginx
 nginx -t

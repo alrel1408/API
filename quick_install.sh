@@ -220,7 +220,7 @@ check_result "Systemd service created" "Failed to create systemd service"
 print_info "Configuring Nginx..."
 cat > /etc/nginx/sites-available/vpn-api << 'EOF'
 server {
-    listen 8080;
+    listen 5000;
     server_name _;
 
     location / {
@@ -304,14 +304,14 @@ check_result "Management command created" "Failed to create management command"
 # Configure firewall
 print_info "Configuring firewall..."
 if command -v ufw >/dev/null 2>&1; then
-    ufw allow 8080/tcp >/dev/null 2>&1
-    print_ok "UFW rule added for port 8080"
+    ufw allow 5000/tcp >/dev/null 2>&1
+    print_ok "UFW rule added for port 5000"
 elif command -v firewall-cmd >/dev/null 2>&1; then
-    firewall-cmd --permanent --add-port=8080/tcp >/dev/null 2>&1
+    firewall-cmd --permanent --add-port=5000/tcp >/dev/null 2>&1
     firewall-cmd --reload >/dev/null 2>&1
-    print_ok "Firewalld rule added for port 8080"
+    print_ok "Firewalld rule added for port 5000"
 else
-    print_warning "No supported firewall found, ensure port 8080 is open"
+    print_warning "No supported firewall found, ensure port 5000 is open"
 fi
 
 # Enable and start services
@@ -377,7 +377,7 @@ SERVER_IP=$(curl -s ipv4.icanhazip.com 2>/dev/null || curl -s ifconfig.me 2>/dev
 
 # Test API
 print_info "Testing API endpoint..."
-API_TEST=$(curl -s -H "X-API-Key: $DEFAULT_API_KEY" "http://localhost:8080/api/v1/info" 2>/dev/null)
+API_TEST=$(curl -s -H "X-API-Key: $DEFAULT_API_KEY" "http://localhost:5000/api/v1/info" 2>/dev/null)
 if echo "$API_TEST" | grep -q "success"; then
     print_ok "API is responding correctly"
 else
@@ -391,7 +391,7 @@ VPN Management API - Installation Complete
 
 Installation Date: $(date)
 Server IP: $SERVER_IP
-API URL: http://$SERVER_IP:8080
+API URL: http://$SERVER_IP:5000
 API Key: $DEFAULT_API_KEY
 
 Quick Commands:
@@ -424,7 +424,7 @@ echo ""
 echo -e "${CYAN}🎉 VPN Management API berhasil diinstall!${NC}"
 echo ""
 echo -e "${CYAN}📋 INFORMASI AKSES:${NC}"
-echo -e "   🌐 API URL     : ${YELLOW}http://$SERVER_IP:8080${NC}"
+echo -e "   🌐 API URL     : ${YELLOW}http://$SERVER_IP:5000${NC}"
 echo -e "   🔑 API Key     : ${YELLOW}$DEFAULT_API_KEY${NC}"
 echo -e "   📁 Directory   : ${YELLOW}/etc/API/${NC}"
 echo ""
@@ -442,10 +442,10 @@ echo -e "   ${GREEN}/etc/API/test_api.sh${NC}    - Test all endpoints"
 echo ""
 echo -e "${CYAN}📚 CONTOH PENGGUNAAN:${NC}"
 echo -e "   # Test API"
-echo -e "   ${YELLOW}curl -H \"X-API-Key: $DEFAULT_API_KEY\" http://$SERVER_IP:8080/api/v1/info${NC}"
+echo -e "   ${YELLOW}curl -H \"X-API-Key: $DEFAULT_API_KEY\" http://$SERVER_IP:5000/api/v1/info${NC}"
 echo ""
 echo -e "   # Buat SSH trial"
-echo -e "   ${YELLOW}curl -X POST -H \"X-API-Key: $DEFAULT_API_KEY\" http://$SERVER_IP:8080/api/v1/trial/ssh${NC}"
+echo -e "   ${YELLOW}curl -X POST -H \"X-API-Key: $DEFAULT_API_KEY\" http://$SERVER_IP:5000/api/v1/trial/ssh${NC}"
 echo ""
 echo -e "${CYAN}📖 DOKUMENTASI:${NC}"
 echo -e "   ${GREEN}/etc/API/README.md${NC}              - Quick guide"

@@ -15,7 +15,7 @@ chmod +x install_api.sh
 ### Authentication
 Semua endpoint memerlukan header `X-API-Key`:
 ```bash
-curl -H "X-API-Key: YOUR_API_KEY" http://your-server:8080/api/v1/info
+curl -H "X-API-Key: YOUR_API_KEY" http://your-server:5000/api/v1/info
 ```
 
 ## 📋 Endpoints
@@ -276,7 +276,7 @@ POST /api/v1/admin/keys
 #!/bin/bash
 
 API_KEY="your_api_key_here"
-SERVER="http://your-server:8080"
+SERVER="http://your-server:5000"
 
 # Buat SSH trial
 echo "Creating SSH trial..."
@@ -346,7 +346,7 @@ class VPNAPIClient:
         return response.json()
 
 # Usage
-client = VPNAPIClient('http://your-server:8080', 'your_api_key')
+client = VPNAPIClient('http://your-server:5000', 'your_api_key')
 
 # Buat SSH trial
 ssh_trial = client.create_ssh_trial()
@@ -458,7 +458,7 @@ vpn-api restart
 ### Port sudah digunakan
 ```bash
 # Cek port yang digunakan
-netstat -tlnp | grep :8080
+netstat -tlnp | grep :5000
 
 # Kill process jika perlu
 kill -9 <PID>
@@ -482,4 +482,4 @@ Jika mengalami masalah, cek:
 1. Log file: `/var/log/api/vpn_api.log`
 2. Service status: `vpn-api status`
 3. Nginx status: `systemctl status nginx`
-4. Port accessibility: `curl http://localhost:8080/api/v1/info -H "X-API-Key: YOUR_KEY"`
+4. Port accessibility: `curl http://localhost:5000/api/v1/info -H "X-API-Key: YOUR_KEY"`

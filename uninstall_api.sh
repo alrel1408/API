@@ -234,16 +234,16 @@ if confirm "Hapus Python packages yang diinstall untuk API (flask, flask-limiter
 fi
 
 # 9. Remove firewall rules (optional)
-if confirm "Hapus firewall rule untuk port 8080?"; then
+if confirm "Hapus firewall rule untuk port 5000?"; then
     print_info "Removing firewall rules..."
     
     if command -v ufw >/dev/null 2>&1; then
-        ufw delete allow 8080/tcp 2>/dev/null
-        print_ok "UFW rule removed for port 8080"
+        ufw delete allow 5000/tcp 2>/dev/null
+        print_ok "UFW rule removed for port 5000"
     elif command -v firewall-cmd >/dev/null 2>&1; then
-        firewall-cmd --permanent --remove-port=8080/tcp 2>/dev/null
+        firewall-cmd --permanent --remove-port=5000/tcp 2>/dev/null
         firewall-cmd --reload 2>/dev/null
-        print_ok "Firewalld rule removed for port 8080"
+        print_ok "Firewalld rule removed for port 5000"
     else
         print_info "No supported firewall found"
     fi
@@ -300,9 +300,9 @@ if [ "$remaining_processes" -gt 0 ]; then
 fi
 
 # Port check
-if netstat -tlnp 2>/dev/null | grep -q ":8080 "; then
-    print_warning "Port 8080 masih digunakan oleh proses lain"
-    print_info "Cek dengan: netstat -tlnp | grep :8080"
+if netstat -tlnp 2>/dev/null | grep -q ":5000 "; then
+    print_warning "Port 5000 masih digunakan oleh proses lain"
+    print_info "Cek dengan: netstat -tlnp | grep :5000"
 fi
 
 echo ""

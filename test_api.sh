@@ -6,7 +6,7 @@
 # =========================================
 
 # Konfigurasi
-API_BASE_URL="http://localhost:8080"
+API_BASE_URL="http://localhost:5000"
 API_KEY_FILE="/etc/API/api_keys.json"
 
 # Warna untuk output

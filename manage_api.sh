@@ -62,11 +62,11 @@ show_status() {
         print_error "Nginx Service: Stopped"
     fi
     
-    # Cek port 8080
-    if netstat -tlnp 2>/dev/null | grep -q ":8080 "; then
-        print_ok "Port 8080: Open"
+    # Cek port 5000
+    if netstat -tlnp 2>/dev/null | grep -q ":5000 "; then
+        print_ok "Port 5000: Open"
     else
-        print_warning "Port 8080: Not listening"
+        print_warning "Port 5000: Not listening"
     fi
     
     # Cek API response
@@ -84,7 +84,7 @@ except:
         if [ -n "$API_KEY" ]; then
             response=$(curl -s -o /dev/null -w "%{http_code}" \
                 -H "X-API-Key: $API_KEY" \
-                http://localhost:8080/api/v1/info 2>/dev/null)
+                http://localhost:5000/api/v1/info 2>/dev/null)
             
             if [ "$response" = "200" ]; then
                 print_ok "API Endpoint: Responding"
@@ -348,7 +348,7 @@ show_logs() {
             ;;
         3)
             if [ -f "/var/log/nginx/access.log" ]; then
-                tail -n 50 /var/log/nginx/access.log | grep ":8080"
+                tail -n 50 /var/log/nginx/access.log | grep ":5000"
             else
                 print_error "Nginx access log not found"
             fi
