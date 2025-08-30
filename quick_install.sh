@@ -69,7 +69,7 @@ fi
 
 # Cek koneksi internet
 print_info "Checking internet connection..."
-if ! curl -s --max-time 10 https://github.com >/dev/null; then
+if ! curl -s --max-time 10 --user-agent "VPN-API-Installer/1.0" https://github.com >/dev/null; then
     print_error "Tidak ada koneksi internet atau GitHub tidak dapat diakses"
     exit 1
 fi
@@ -109,8 +109,41 @@ fi
 
 # Install Python packages
 print_info "Installing Python packages..."
-pip3 install flask flask-limiter gunicorn >/dev/null 2>&1
-check_result "Python packages installed" "Failed to install Python packages"
+
+# Update pip first
+print_info "Updating pip..."
+python3 -m pip install --upgrade pip >/dev/null 2>&1
+
+# Try different installation methods
+print_info "Installing Flask, Flask-Limiter, and Gunicorn..."
+
+# Method 1: Standard installation
+if pip3 install flask flask-limiter gunicorn >/dev/null 2>&1; then
+    print_ok "Python packages installed successfully"
+# Method 2: With --break-system-packages (for newer Ubuntu/Debian)
+elif pip3 install flask flask-limiter gunicorn --break-system-packages >/dev/null 2>&1; then
+    print_ok "Python packages installed successfully (system packages)"
+# Method 3: Using python3 -m pip
+elif python3 -m pip install flask flask-limiter gunicorn >/dev/null 2>&1; then
+    print_ok "Python packages installed successfully (python3 -m pip)"
+# Method 4: With user agent and timeout
+elif pip3 install flask flask-limiter gunicorn --timeout 60 --retries 3 >/dev/null 2>&1; then
+    print_ok "Python packages installed successfully (with retry)"
+else
+    print_error "Failed to install Python packages with all methods"
+    print_info "Trying manual installation with verbose output..."
+    
+    # Show detailed error for debugging
+    echo "Attempting manual installation:"
+    pip3 install flask flask-limiter gunicorn --verbose
+    
+    if [ $? -ne 0 ]; then
+        print_error "Manual installation also failed"
+        print_info "Please check your internet connection and Python installation"
+        print_info "You can try manually: sudo pip3 install flask flask-limiter gunicorn"
+        exit 1
+    fi
+fi
 
 # Create directories
 print_info "Creating directories..."
@@ -121,20 +154,33 @@ check_result "Directories created" "Failed to create directories"
 
 # Download main API file
 print_info "Downloading VPN API main file..."
-curl -sL "$GITHUB_RAW/vpn_api.py" -o /etc/API/vpn_api.py
-check_result "API file downloaded" "Failed to download API file"
+if curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/vpn_api.py" -o /etc/API/vpn_api.py; then
+    # Verify file was downloaded and is not empty
+    if [ -s "/etc/API/vpn_api.py" ] && head -1 /etc/API/vpn_api.py | grep -q "python"; then
+        print_ok "API file downloaded successfully"
+    else
+        print_error "Downloaded file is empty or corrupted"
+        print_info "URL: $GITHUB_RAW/vpn_api.py"
+        exit 1
+    fi
+else
+    print_error "Failed to download API file from GitHub"
+    print_info "URL: $GITHUB_RAW/vpn_api.py"
+    print_info "Please check your internet connection and GitHub access"
+    exit 1
+fi
 
 # Download management scripts
 print_info "Downloading management scripts..."
-curl -sL "$GITHUB_RAW/manage_api.sh" -o /etc/API/manage_api.sh
-curl -sL "$GITHUB_RAW/test_api.sh" -o /etc/API/test_api.sh
-curl -sL "$GITHUB_RAW/uninstall_api.sh" -o /etc/API/uninstall_api.sh
+curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/manage_api.sh" -o /etc/API/manage_api.sh
+curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/test_api.sh" -o /etc/API/test_api.sh
+curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/uninstall_api.sh" -o /etc/API/uninstall_api.sh
 check_result "Management scripts downloaded" "Failed to download management scripts"
 
 # Download documentation
 print_info "Downloading documentation..."
-curl -sL "$GITHUB_RAW/README.md" -o /etc/API/README.md
-curl -sL "$GITHUB_RAW/API_DOCUMENTATION.md" -o /etc/API/API_DOCUMENTATION.md
+curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/README.md" -o /etc/API/README.md
+curl -sL --retry 3 --retry-delay 2 --user-agent "VPN-API-Installer/1.0" --connect-timeout 30 "$GITHUB_RAW/API_DOCUMENTATION.md" -o /etc/API/API_DOCUMENTATION.md
 check_result "Documentation downloaded" "Failed to download documentation"
 
 # Set permissions
@@ -373,15 +419,17 @@ else
 fi
 
 # Get server IP
-SERVER_IP=$(curl -s ipv4.icanhazip.com 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "YOUR_SERVER_IP")
+SERVER_IP=$(curl -s --user-agent "VPN-API-Installer/1.0" --max-time 10 ipv4.icanhazip.com 2>/dev/null || curl -s --user-agent "VPN-API-Installer/1.0" --max-time 10 ifconfig.me 2>/dev/null || echo "YOUR_SERVER_IP")
 
 # Test API
 print_info "Testing API endpoint..."
-API_TEST=$(curl -s -H "X-API-Key: $DEFAULT_API_KEY" "http://localhost:5000/api/v1/info" 2>/dev/null)
+API_TEST=$(curl -s --user-agent "VPN-API-Installer/1.0" --max-time 10 -H "X-API-Key: $DEFAULT_API_KEY" "http://localhost:5000/api/v1/info" 2>/dev/null)
 if echo "$API_TEST" | grep -q "success"; then
     print_ok "API is responding correctly"
 else
     print_warning "API test failed, but service is running"
+    print_info "API Response: $API_TEST"
+    print_info "You can test manually with: curl -H \"X-API-Key: $DEFAULT_API_KEY\" http://localhost:5000/api/v1/info"
 fi
 
 # Save installation info
