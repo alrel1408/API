@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#
 # =========================================
 # VPN Management API Installer
 # Auto installer untuk API VPN Management
@@ -81,11 +81,28 @@ fi
 
 # Install dependencies
 print_info "Menginstall dependencies..."
+
+# Cek apakah Nginx sudah terinstall dari Xray setup
+if command -v nginx >/dev/null 2>&1; then
+    print_warning "Nginx sudah terinstall, melewati instalasi ulang"
+    NGINX_INSTALLED=true
+else
+    NGINX_INSTALLED=false
+fi
+
 if [[ "$OS" == "debian" ]]; then
-    apt install -y python3 python3-pip python3-venv nginx supervisor curl wget git
+    if [ "$NGINX_INSTALLED" = false ]; then
+        apt install -y python3 python3-pip python3-venv nginx supervisor curl wget git
+    else
+        apt install -y python3 python3-pip python3-venv supervisor curl wget git
+    fi
     check_result "Dependencies berhasil diinstall" "Gagal menginstall dependencies"
 else
-    yum install -y python3 python3-pip nginx supervisor curl wget git
+    if [ "$NGINX_INSTALLED" = false ]; then
+        yum install -y python3 python3-pip nginx supervisor curl wget git
+    else
+        yum install -y python3 python3-pip supervisor curl wget git
+    fi
     check_result "Dependencies berhasil diinstall" "Gagal menginstall dependencies"
 fi
 
@@ -470,26 +487,36 @@ systemctl daemon-reload
 systemctl enable vpn-api
 check_result "Service berhasil dienable" "Gagal mengenable service"
 
-# Konfigurasi Nginx sebagai reverse proxy
-print_info "Mengkonfigurasi Nginx..."
-cat > /etc/nginx/sites-available/vpn-api << 'EOF'
+# Konfigurasi Nginx sebagai reverse proxy (hanya jika belum ada konfigurasi Xray)
+print_info "Mengkonfigurasi Nginx untuk API..."
+
+# Cek apakah sudah ada konfigurasi Xray
+if [ -f "/etc/nginx/conf.d/xray.conf" ] || [ -f "/etc/nginx/sites-enabled/xray" ]; then
+    print_warning "Konfigurasi Xray sudah ada, menggunakan port alternatif 7000 untuk API"
+    API_PORT=7000
+else
+    API_PORT=5000
+fi
+
+# Buat konfigurasi API yang tidak konflik dengan Xray
+cat > /etc/nginx/sites-available/vpn-api << EOF
 server {
-    listen 5000;
+    listen $API_PORT;
     server_name _;
 
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         
         # Headers untuk CORS
         add_header Access-Control-Allow-Origin *;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
         add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-API-Key";
         
-        if ($request_method = 'OPTIONS') {
+        if (\$request_method = 'OPTIONS') {
             add_header Access-Control-Allow-Origin *;
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
             add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,X-API-Key";
@@ -499,26 +526,52 @@ server {
             return 204;
         }
     }
+    
+    # Health check endpoint
+    location /health {
+        return 200 "API OK";
+        add_header Content-Type text/plain;
+    }
 }
 EOF
 
-# Enable site di Nginx
+# Enable site di Nginx hanya jika tidak konflik
 if [[ "$OS" == "debian" ]]; then
-    ln -sf /etc/nginx/sites-available/vpn-api /etc/nginx/sites-enabled/
+    if [ ! -f "/etc/nginx/sites-enabled/vpn-api" ]; then
+        ln -sf /etc/nginx/sites-available/vpn-api /etc/nginx/sites-enabled/
+    fi
 else
-    # Untuk CentOS, copy ke conf.d
+    # Untuk CentOS, copy ke conf.d dengan nama unik
     cp /etc/nginx/sites-available/vpn-api /etc/nginx/conf.d/vpn-api.conf
 fi
 
-# Test konfigurasi Nginx
-nginx -t
-check_result "Konfigurasi Nginx valid" "Konfigurasi Nginx tidak valid"
+# Test konfigurasi Nginx dengan fallback
+if nginx -t 2>/dev/null; then
+    print_ok "Konfigurasi Nginx valid"
+else
+    print_warning "Konfigurasi Nginx gagal, menggunakan mode standalone"
+    rm -f /etc/nginx/sites-enabled/vpn-api
+    rm -f /etc/nginx/conf.d/vpn-api.conf
+    API_PORT=5000
+fi
 
-# Restart services
+# Restart services dengan pengecekan
 print_info "Memulai services..."
-systemctl restart nginx
+
+# Cek apakah Xray service sedang berjalan dan jangan ganggu
+if systemctl is-active --quiet xray; then
+    print_warning "Xray service terdeteksi berjalan, tidak akan restart Nginx"
+    # Hanya reload nginx untuk menerapkan konfigurasi baru
+    if nginx -t 2>/dev/null; then
+        systemctl reload nginx 2>/dev/null || print_warning "Gagal reload Nginx, menggunakan mode standalone"
+    fi
+else
+    # Aman untuk restart nginx
+    systemctl restart nginx 2>/dev/null || print_warning "Gagal restart Nginx, menggunakan mode standalone"
+fi
+
 systemctl start vpn-api
-check_result "Services berhasil dimulai" "Gagal memulai services"
+check_result "VPN API service berhasil dimulai" "Gagal memulai VPN API service"
 
 # Buat script management
 print_info "Membuat script management..."
@@ -566,13 +619,21 @@ check_result "Script management berhasil dibuat" "Gagal membuat script managemen
 print_info "Mengkonfigurasi firewall..."
 if command -v ufw >/dev/null 2>&1; then
     ufw allow 5000/tcp
-    print_ok "UFW rule ditambahkan untuk port 5000"
+    if [ "$API_PORT" != "5000" ]; then
+        ufw allow $API_PORT/tcp
+        print_ok "UFW rule ditambahkan untuk port 5000 dan $API_PORT"
+    else
+        print_ok "UFW rule ditambahkan untuk port 5000"
+    fi
 elif command -v firewall-cmd >/dev/null 2>&1; then
     firewall-cmd --permanent --add-port=5000/tcp
+    if [ "$API_PORT" != "5000" ]; then
+        firewall-cmd --permanent --add-port=$API_PORT/tcp
+    fi
     firewall-cmd --reload
-    print_ok "Firewalld rule ditambahkan untuk port 5000"
+    print_ok "Firewalld rule ditambahkan untuk port yang diperlukan"
 else
-    print_warning "Firewall tidak terdeteksi, pastikan port 5000 terbuka"
+    print_warning "Firewall tidak terdeteksi, pastikan port 5000 dan $API_PORT terbuka"
 fi
 
 # Ambil IP server
@@ -602,7 +663,13 @@ echo -e "${GREEN}║        INSTALASI BERHASIL SELESAI!       ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}📋 INFORMASI API:${NC}"
-echo -e "   🌐 URL API    : http://$SERVER_IP:5000"
+if [ "$API_PORT" != "5000" ]; then
+    echo -e "   🌐 URL API    : http://$SERVER_IP:$API_PORT/api/"
+    echo -e "   🌐 Direct API : http://$SERVER_IP:5000"
+    echo -e "   ⚠️  Note      : Menggunakan port $API_PORT karena ada Xray"
+else
+    echo -e "   🌐 URL API    : http://$SERVER_IP:5000"
+fi
 echo -e "   🔑 API Key    : $DEFAULT_API_KEY"
 echo -e "   📝 Log File   : /var/log/api/vpn_api.log"
 echo -e "   ⚙️  Config    : /etc/API/"
@@ -617,18 +684,32 @@ echo -e "   vpn-api key      - Lihat API keys"
 echo ""
 echo -e "${CYAN}📚 CONTOH PENGGUNAAN:${NC}"
 echo -e "   # Membuat SSH trial"
-echo -e "   curl -X POST http://$SERVER_IP:5000/api/v1/trial/ssh \\"
+if [ "$API_PORT" != "5000" ]; then
+    echo -e "   curl -X POST http://$SERVER_IP:$API_PORT/api/v1/trial/ssh \\"
+else
+    echo -e "   curl -X POST http://$SERVER_IP:5000/api/v1/trial/ssh \\"
+fi
 echo -e "        -H \"X-API-Key: $DEFAULT_API_KEY\" \\"
 echo -e "        -H \"Content-Type: application/json\""
 echo ""
 echo -e "   # Lihat semua akun"
-echo -e "   curl -X GET http://$SERVER_IP:5000/api/v1/accounts/list \\"
+if [ "$API_PORT" != "5000" ]; then
+    echo -e "   curl -X GET http://$SERVER_IP:$API_PORT/api/v1/accounts/list \\"
+else
+    echo -e "   curl -X GET http://$SERVER_IP:5000/api/v1/accounts/list \\"
+fi
 echo -e "        -H \"X-API-Key: $DEFAULT_API_KEY\""
 echo ""
 echo -e "${YELLOW}⚠️  PENTING:${NC}"
 echo -e "   - Simpan API Key dengan aman!"
-echo -e "   - Pastikan port 5000 terbuka di firewall"
-echo -e "   - API berjalan di port 5000 melalui Nginx"
+if [ "$API_PORT" != "5000" ]; then
+    echo -e "   - Pastikan port $API_PORT dan 5000 terbuka di firewall"
+    echo -e "   - API berjalan di port 5000, proxy di port $API_PORT"
+    echo -e "   - Konfigurasi dibuat kompatibel dengan Xray"
+else
+    echo -e "   - Pastikan port 5000 terbuka di firewall"
+    echo -e "   - API berjalan di port 5000 langsung"
+fi
 echo ""
 echo -e "${GREEN}🎉 API VPN Management siap digunakan!${NC}"
 echo ""
@@ -638,7 +719,13 @@ cat > /root/vpn-api-info.txt << EOF
 VPN Management API Information
 =============================
 
-API URL: http://$SERVER_IP:5000
+$(if [ "$API_PORT" != "5000" ]; then
+    echo "API URL: http://$SERVER_IP:$API_PORT/api/"
+    echo "Direct API URL: http://$SERVER_IP:5000"
+    echo "Note: Using port $API_PORT due to Xray compatibility"
+else
+    echo "API URL: http://$SERVER_IP:5000"
+fi)
 API Key: $DEFAULT_API_KEY
 Log File: /var/log/api/vpn_api.log
 Config Dir: /etc/API/
