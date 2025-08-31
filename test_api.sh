@@ -9,6 +9,17 @@
 API_BASE_URL="http://localhost:5000"
 API_KEY_FILE="/etc/API/api_keys.json"
 
+# Auto-detect API port from running service
+if systemctl is-active --quiet vpn-api; then
+    # Check if API is running on port 7777 (gunicorn)
+    if netstat -tlnp 2>/dev/null | grep -q ":7777.*python\|:7777.*gunicorn"; then
+        API_BASE_URL="http://localhost:7777"
+    # Check if API is running on port 5000 (direct python)
+    elif netstat -tlnp 2>/dev/null | grep -q ":5000.*python"; then
+        API_BASE_URL="http://localhost:5000"
+    fi
+fi
+
 # Warna untuk output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -47,13 +58,28 @@ import json
 try:
     with open('$API_KEY_FILE', 'r') as f:
         data = json.load(f)
-        print(data['default']['key'])
-except:
+        # Try new format first (quick_install.sh format)
+        if 'keys' in data and isinstance(data['keys'], list) and len(data['keys']) > 0:
+            print(data['keys'][0]['key'])
+        # Try old format (install_api.sh format)
+        elif 'default' in data and 'key' in data['default']:
+            print(data['default']['key'])
+        # Try direct key format
+        elif 'key' in data:
+            print(data['key'])
+        else:
+            print('')
+except Exception as e:
     print('')
 " 2>/dev/null)
         
         if [ -z "$API_KEY" ]; then
             print_error "Tidak dapat membaca API key dari $API_KEY_FILE"
+            echo "Format file API key tidak dikenali."
+            if [ -f "$API_KEY_FILE" ]; then
+                echo "Isi file:"
+                cat "$API_KEY_FILE"
+            fi
             exit 1
         fi
     else
@@ -145,6 +171,8 @@ fi
 print_info "Getting API key..."
 get_api_key
 print_ok "API Key: ${API_KEY:0:8}..."
+print_info "Using API URL: $API_BASE_URL"
+echo ""
 
 # Test 1: Server Info
 test_request "GET" "/api/v1/info" "" "Testing server info endpoint"
